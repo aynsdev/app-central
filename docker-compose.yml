@@ -1,0 +1,36 @@
+# Local development: `docker compose up -d db`
+# Full self-hosted stack: `docker compose up -d`
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: appcentral
+      POSTGRES_PASSWORD: appcentral
+      POSTGRES_DB: appcentral
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appcentral"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    profiles: ["app"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://appcentral:appcentral@db:5432/appcentral
+      CRON_SECRET: ${CRON_SECRET:-change-me}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
