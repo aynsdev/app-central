@@ -76,12 +76,17 @@ export async function createProjectAction(_: FormState, formData: FormData): Pro
   const parsed = projectSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: firstIssue(parsed.error) };
 
+  const icon = await readIcon(formData);
+  if (icon && "error" in icon) return icon;
+
   const { name, description, platform, timezone } = parsed.data;
   const slug = await uniqueSlug(name);
-  await sql`
+  const [{ id }] = await sql<{ id: string }[]>`
     insert into projects (name, slug, description, platform, timezone, ingest_key)
     values (${name}, ${slug}, ${description || null}, ${platform}, ${timezone}, ${newIngestKey()})
+    returning id
   `;
+  if (icon) await saveProjectIcon(id, icon.bytes, icon.type);
   revalidatePath("/", "layout"); // sidebar lists projects
   redirect(`/projects/${slug}/settings?created=1`);
 }
@@ -127,17 +132,24 @@ export async function deleteProjectAction(slug: string) {
   redirect("/");
 }
 
-export async function uploadIconAction(slug: string, _: FormState, formData: FormData): Promise<FormState> {
-  const project = await getProject(slug);
+/** Reads and checks the "icon" file field. Returns null when no file was picked. */
+async function readIcon(formData: FormData): Promise<{ bytes: Buffer; type: string } | { error: string } | null> {
   const file = formData.get("icon");
-  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image to upload." };
+  if (!(file instanceof File) || file.size === 0) return null;
   if (file.size > MAX_ICON_BYTES) return { error: "The image is over 512 KB. Use a smaller or more compressed file." };
-
   const bytes = Buffer.from(await file.arrayBuffer());
   const type = sniffImageType(bytes);
   if (!type) return { error: "Use a PNG, JPEG, WebP or GIF image." };
+  return { bytes, type };
+}
 
-  await saveProjectIcon(project.id, bytes, type);
+export async function uploadIconAction(slug: string, _: FormState, formData: FormData): Promise<FormState> {
+  const project = await getProject(slug);
+  const icon = await readIcon(formData);
+  if (!icon) return { error: "Choose an image to upload." };
+  if ("error" in icon) return icon;
+
+  await saveProjectIcon(project.id, icon.bytes, icon.type);
   revalidatePath("/", "layout"); // sidebar and cards show the icon
   return { ok: "Logo updated" };
 }

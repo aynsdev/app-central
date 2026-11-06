@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { ImagePlusIcon, Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 import {
   createProjectAction,
@@ -14,7 +15,6 @@ import {
   uploadIconAction,
   type FormState,
 } from "@/app/actions";
-import { ProjectIcon } from "@/components/project-icon";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +31,9 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+
+const MAX_ICON_BYTES = 512 * 1024;
 
 const PLATFORM_LABELS: Record<string, string> = {
   ios: "iOS",
@@ -87,11 +90,113 @@ function ProjectFields({ defaults, browserTimezone }: { defaults?: ProjectDefaul
   );
 }
 
+/** The logo tile doubles as the upload button: click it to pick an image. */
+function LogoButton({
+  name,
+  src,
+  loading,
+  onClick,
+  label,
+}: {
+  name: string;
+  src: string | null;
+  loading?: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={loading}
+      aria-label={label}
+      title={label}
+      className="group relative grid size-16 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-2xl bg-secondary text-xl font-semibold uppercase text-muted-foreground outline-none transition-shadow focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-wait"
+    >
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- blob preview or small authenticated image
+        <img src={src} alt="" className="size-full object-cover" />
+      ) : name ? (
+        name.slice(0, 1)
+      ) : (
+        <ImagePlusIcon className="size-6" aria-hidden="true" />
+      )}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "absolute inset-0 grid place-items-center bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100",
+          loading && "opacity-100",
+        )}
+      >
+        {loading ? <Loader2Icon className="size-5 animate-spin" /> : <ImagePlusIcon className="size-5" />}
+      </span>
+    </button>
+  );
+}
+
+/** Optional logo for the create form: previews locally, uploads with the form. */
+function LogoPicker({ preview, onPick }: { preview: string | null; onPick: (file: File | null) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <Field>
+      <FieldLabel htmlFor="icon">Logo</FieldLabel>
+      <div className="flex flex-wrap items-center gap-4">
+        <LogoButton name="" src={preview} onClick={() => inputRef.current?.click()} label={preview ? "Change logo" : "Choose logo"} />
+        <div className="grid justify-items-start gap-1">
+          {error ? <FieldError>{error}</FieldError> : <FieldDescription>Optional. Click to pick a square PNG, JPEG, WebP or GIF, up to 512 KB.</FieldDescription>}
+          {preview && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="-ml-2.5"
+              onClick={() => {
+                if (inputRef.current) inputRef.current.value = "";
+                onPick(null);
+              }}
+            >
+              Remove
+            </Button>
+          )}
+        </div>
+        <input
+          ref={inputRef}
+          id="icon"
+          type="file"
+          name="icon"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="sr-only"
+          tabIndex={-1}
+          onChange={(e) => {
+            const file = e.currentTarget.files?.[0] ?? null;
+            if (file && file.size > MAX_ICON_BYTES) {
+              setError("The image is over 512 KB. Use a smaller or more compressed file.");
+              e.currentTarget.value = "";
+              onPick(null);
+              return;
+            }
+            setError(null);
+            onPick(file);
+          }}
+        />
+      </div>
+    </Field>
+  );
+}
+
 export function CreateProjectForm() {
   const [state, action, pending] = useActionState(createProjectAction, undefined);
+  const [preview, setPreview] = useState<string | null>(null);
+  const pick = (file: File | null) => {
+    if (preview) URL.revokeObjectURL(preview);
+    setPreview(file ? URL.createObjectURL(file) : null);
+  };
   return (
-    <form action={action}>
+    // React resets the form after each submit, which clears the file input; drop the preview with it.
+    <form action={action} onReset={() => pick(null)}>
       <FieldGroup>
+        <LogoPicker preview={preview} onPick={pick} />
         <ProjectFields browserTimezone />
         <FieldError>{state?.error}</FieldError>
         <div>
@@ -266,8 +371,6 @@ export function DeleteProjectButton({ slug, name }: { slug: string; name: string
   );
 }
 
-const MAX_ICON_BYTES = 512 * 1024;
-
 /** Picking a file uploads it straight away; the server re-checks size and format. */
 export function ProjectIconForm({ slug, name, src }: { slug: string; name: string; src: string | null }) {
   const [state, action, pending] = useActionState(uploadIconAction.bind(null, slug), undefined);
@@ -281,29 +384,30 @@ export function ProjectIconForm({ slug, name, src }: { slug: string; name: strin
 
   return (
     <form ref={formRef} action={action} className="flex flex-wrap items-center gap-4">
-      <ProjectIcon name={name} src={src} size="lg" />
-      <div className="grid gap-2">
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" loading={pending} onClick={() => inputRef.current?.click()}>
-            {src ? "Replace logo" : "Upload logo"}
+      <LogoButton name={name} src={src} loading={pending} onClick={() => inputRef.current?.click()} label={src ? "Replace logo" : "Upload logo"} />
+      <div className="grid justify-items-start gap-1">
+        {error ? (
+          <FieldError>{error}</FieldError>
+        ) : (
+          <FieldDescription>Click the logo to upload a square PNG, JPEG, WebP or GIF, up to 512 KB. 256×256 works well.</FieldDescription>
+        )}
+        {src && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="-ml-2.5"
+            loading={removing}
+            onClick={() =>
+              startRemove(async () => {
+                await removeIconAction(slug);
+                toast.success("Logo removed");
+              })
+            }
+          >
+            Remove
           </Button>
-          {src && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              loading={removing}
-              onClick={() =>
-                startRemove(async () => {
-                  await removeIconAction(slug);
-                  toast.success("Logo removed");
-                })
-              }
-            >
-              Remove
-            </Button>
-          )}
-        </div>
+        )}
         <input
           ref={inputRef}
           type="file"
@@ -324,11 +428,6 @@ export function ProjectIconForm({ slug, name, src }: { slug: string; name: strin
             formRef.current?.requestSubmit();
           }}
         />
-        {error ? (
-          <FieldError>{error}</FieldError>
-        ) : (
-          <FieldDescription>Square PNG, JPEG, WebP or GIF, up to 512 KB. 256×256 works well.</FieldDescription>
-        )}
       </div>
     </form>
   );
