@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#F5F5F5"/>
+  <g fill="none" stroke="#E4E4E4">
+    <path d="M784 0V630M1008 0V630M0 196H1200M0 420H1200"/>
+    <circle cx="896" cy="308" r="172"/>
+    <circle cx="896" cy="308" r="238"/>
+  </g>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <svg xmlns="http://www.w3.org/2000/svg" x="72" y="64" width="48" height="48" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="16" fill="#171717"/>
+  <rect x="12" y="12" width="17" height="17" rx="5" fill="#FAFAFA"/>
+  <rect x="35" y="12" width="17" height="17" rx="5" fill="#FAFAFA"/>
+  <rect x="12" y="35" width="17" height="17" rx="5" fill="#FAFAFA"/>
+  <rect x="35" y="35" width="17" height="17" rx="5" fill="#FAFAFA"/>
+  <rect x="25" y="25" width="14" height="14" rx="4" fill="#4F78C7" stroke="#171717" stroke-width="4"/>
+</svg>
+
+    <text x="136" y="97" font-size="28" font-weight="700" fill="#171717">App Central</text>
+    <circle cx="78" cy="191" r="5" fill="#4F78C7"/>
+    <text x="96" y="197" font-size="15" font-weight="700" letter-spacing="2" fill="#5C5C5C">SELF-HOSTED ANALYTICS</text>
+    <text x="68" y="285" font-size="72" font-weight="700" letter-spacing="-3" fill="#171717">Every app.</text>
+    <text x="68" y="365" font-size="72" font-weight="700" letter-spacing="-3" fill="#171717">One clear picture.</text>
+    <text x="72" y="425" font-size="23" fill="#5C5C5C">Analytics and monitoring for every app you ship.</text>
+    <svg xmlns="http://www.w3.org/2000/svg" x="800" y="212" width="192" height="192" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="16" fill="#171717"/>
+  <rect x="12" y="12" width="17" height="17" rx="5" fill="#FAFAFA"/>
+  <rect x="35" y="12" width="17" height="17" rx="5" fill="#FAFAFA"/>
+  <rect x="12" y="35" width="17" height="17" rx="5" fill="#FAFAFA"/>
+  <rect x="35" y="35" width="17" height="17" rx="5" fill="#FAFAFA"/>
+  <rect x="25" y="25" width="14" height="14" rx="4" fill="#4F78C7" stroke="#171717" stroke-width="4"/>
+</svg>
+
+    <g fill="#4F78C7">
+      <circle cx="896" cy="136" r="6"/>
+      <circle cx="1068" cy="308" r="6"/>
+      <circle cx="896" cy="480" r="6"/>
+      <circle cx="724" cy="308" r="6"/>
+    </g>
+    <path d="M72 522H1128" stroke="#DCDCDC"/>
+    <text x="72" y="567" font-size="18" fill="#5C5C5C">Your data. Your infrastructure.</text>
+    <text x="1128" y="567" text-anchor="end" font-size="18" fill="#5C5C5C">Analytics · Funnels · Reports</text>
+  </g>
+</svg>

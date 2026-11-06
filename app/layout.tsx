@@ -7,8 +7,23 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.APP_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000")),
   title: { default: "App Central", template: "%s · App Central" },
   description: "Self-hosted analytics and monitoring for all your apps.",
+  applicationName: "App Central",
+  openGraph: {
+    type: "website",
+    siteName: "App Central",
+    title: "App Central — Every app. One clear picture.",
+    description: "Self-hosted analytics and monitoring for every app you ship. Your data. Your infrastructure.",
+    images: [{ url: "/brand/og-image.png", width: 1200, height: 630, alt: "App Central — Every app. One clear picture. Self-hosted analytics and monitoring." }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "App Central — Every app. One clear picture.",
+    description: "Self-hosted analytics and monitoring for every app you ship.",
+    images: [{ url: "/brand/og-image.png", alt: "App Central — Every app. One clear picture. Self-hosted analytics and monitoring." }],
+  },
 };
 
 // Applies the saved theme before first paint so dark mode doesn't flash.

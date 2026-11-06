@@ -1,3 +1,5 @@
+![App Central — Every app. One clear picture.](public/brand/og-image.png)
+
 # App Central
 
 Self-hosted monitoring for every app you ship. Point your apps at one API and get, per app:
@@ -46,7 +48,7 @@ See [docs/deploy-forge.md](docs/deploy-forge.md).
 | --- | --- | --- |
 | `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | yes* | Postgres connection (Laravel/Forge style) |
 | `DATABASE_URL` | yes* | Postgres connection string; overrides the `DB_*` settings |
-| `APP_URL` | no | Public URL of the dashboard, used in snippets and report links |
+| `APP_URL` | no | Public URL of the dashboard, used in snippets, report links and social preview image URLs. Set this to your public HTTPS URL in production. |
 | `CRON_SECRET` | for reports | Bearer token for `POST /api/cron/reports` |
 | `DATABASE_POOL_SIZE` | no | Connection pool size (default 10) |
 
@@ -168,6 +170,12 @@ lib/insights.ts     suggestion rules
 db/migrations/*.sql schema (applied by npm run db:migrate)
 sdk/app-central.ts  drop-in client
 ```
+
+## Brand assets
+
+The [SVG logo](public/brand/logo.svg) is the editable master, with a [512px PNG](public/brand/logo.png) for other uses. The app header, browser favicon, Apple touch icon and [social preview](public/brand/og-image.png) use the same mark: four app tiles around a central blue hub.
+
+After editing the logo or preview layout in `scripts/generate-brand-assets.mjs`, run `npm run brand:generate` to regenerate the assets.
 
 ## License
 
