@@ -36,6 +36,10 @@ CRON_SECRET=$(openssl rand -hex 24) docker compose --profile app up -d --build
 
 The app container runs pending migrations on start.
 
+### Deploy on Laravel Forge
+
+See [docs/deploy-forge.md](docs/deploy-forge.md).
+
 ### Environment
 
 | Variable | Required | Description |
