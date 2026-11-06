@@ -2,7 +2,8 @@ import { SearchIcon, UsersIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { PageNav, parsePage } from "@/components/page-nav";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { listAppUsers } from "@/lib/analytics";
 import { formatNumber, formatRelative } from "@/lib/format";
 import { getProject } from "@/lib/projects";
-import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Users" };
 
@@ -22,32 +22,13 @@ function traitPreview(traits: Record<string, unknown>) {
   return entries.map(([k, v]) => `${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`).join(" · ");
 }
 
-// A disabled <Button> attaches click guards, which a Server Component can't pass,
-// so the unavailable state is a plain element styled like the button.
-function PageLink({ href, children }: { href: string | null; children: React.ReactNode }) {
-  if (!href) {
-    return (
-      <span aria-disabled="true" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "pointer-events-none opacity-50")}>
-        {children}
-      </span>
-    );
-  }
-  return (
-    <Button asChild variant="outline" size="sm">
-      <Link href={href}>{children}</Link>
-    </Button>
-  );
-}
-
 async function UserTable({ params, searchParams }: Props) {
   const project = await getProject((await params).slug);
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q : undefined;
-  const page = Number(typeof sp.page === "string" ? sp.page : 1) || 1;
+  const page = parsePage(sp.page);
   const { users, total, pageSize } = await listAppUsers(project.id, { q, page });
   const base = `/projects/${project.slug}/users`;
-  const pageHref = (p: number) => `${base}?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) })}`;
-  const lastPage = Math.max(1, Math.ceil(total / pageSize));
 
   if (users.length === 0) {
     return (
@@ -56,9 +37,9 @@ async function UserTable({ params, searchParams }: Props) {
           <EmptyMedia>
             <UsersIcon />
           </EmptyMedia>
-          <EmptyTitle>{q ? "No matching users" : "No users yet"}</EmptyTitle>
+          <EmptyTitle>{q ? "No matching users" : page > 1 ? "No users on this page" : "No users yet"}</EmptyTitle>
           <EmptyDescription>
-            {q ? "Try a different id or trait value." : "Users appear when your app sends its first event, ping or identify call."}
+            {q ? "Try a different id or trait value." : page > 1 ? "Go back to the first page." : "Users appear when your app sends its first event, ping or identify call."}
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -99,18 +80,7 @@ async function UserTable({ params, searchParams }: Props) {
           </Table>
         </CardContent>
       </Card>
-      <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-        <span className="tabular-nums">
-          {formatNumber(total)} {total === 1 ? "user" : "users"}
-          {lastPage > 1 && ` · page ${page} of ${lastPage}`}
-        </span>
-        {lastPage > 1 && (
-          <div className="flex gap-2">
-            <PageLink href={page > 1 ? pageHref(page - 1) : null}>Previous</PageLink>
-            <PageLink href={page < lastPage ? pageHref(page + 1) : null}>Next</PageLink>
-          </div>
-        )}
-      </div>
+      <PageNav page={page} pageSize={pageSize} total={total} basePath={base} query={{ q }} noun={["user", "users"]} />
     </div>
   );
 }

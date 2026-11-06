@@ -1,8 +1,20 @@
 "use client";
 
-import { useActionState, useEffect, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { createProjectAction, deleteProjectAction, generateReportAction, rotateKeyAction, saveOnboardingAction, updateProjectAction, type FormState } from "@/app/actions";
+import {
+  createProjectAction,
+  deleteProjectAction,
+  generateReportAction,
+  removeIconAction,
+  rotateKeyAction,
+  saveOnboardingAction,
+  updateProjectAction,
+  updateWebhookAction,
+  uploadIconAction,
+  type FormState,
+} from "@/app/actions";
+import { ProjectIcon } from "@/components/project-icon";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +47,7 @@ function useToastOnSuccess(state: FormState) {
   }, [state]);
 }
 
-type ProjectDefaults = { name?: string; description?: string | null; platform?: string; timezone?: string; reportWebhookUrl?: string | null };
+type ProjectDefaults = { name?: string; description?: string | null; platform?: string; timezone?: string };
 
 function ProjectFields({ defaults, browserTimezone }: { defaults?: ProjectDefaults; browserTimezone?: boolean }) {
   return (
@@ -48,7 +60,7 @@ function ProjectFields({ defaults, browserTimezone }: { defaults?: ProjectDefaul
         <FieldLabel htmlFor="description">Description</FieldLabel>
         <Textarea id="description" name="description" defaultValue={defaults?.description ?? ""} rows={2} maxLength={500} placeholder="What the app does" />
       </Field>
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid items-start gap-5 sm:grid-cols-2">
         <Field>
           <FieldLabel htmlFor="platform">Platform</FieldLabel>
           <NativeSelect id="platform" name="platform" defaultValue={defaults?.platform ?? "cross-platform"}>
@@ -99,15 +111,39 @@ export function ProjectSettingsForm({ slug, defaults }: { slug: string; defaults
     <form action={action}>
       <FieldGroup>
         <ProjectFields defaults={defaults} />
-        <Field>
-          <FieldLabel htmlFor="reportWebhookUrl">Report webhook</FieldLabel>
-          <Input id="reportWebhookUrl" name="reportWebhookUrl" type="url" defaultValue={defaults.reportWebhookUrl ?? ""} placeholder="https://hooks.slack.com/services/…" />
-          <FieldDescription>Weekly reports are posted here. Slack and Discord URLs get a formatted message; any other URL receives the report as JSON.</FieldDescription>
-        </Field>
         <FieldError>{state?.error}</FieldError>
         <div>
           <Button type="submit" loading={pending}>
             Save changes
+          </Button>
+        </div>
+      </FieldGroup>
+    </form>
+  );
+}
+
+export function WebhookForm({ slug, url }: { slug: string; url: string | null }) {
+  const [state, action, pending] = useActionState(updateWebhookAction.bind(null, slug), undefined);
+  useToastOnSuccess(state);
+  return (
+    <form action={action}>
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="reportWebhookUrl">Webhook URL</FieldLabel>
+          <Input
+            id="reportWebhookUrl"
+            name="reportWebhookUrl"
+            type="url"
+            defaultValue={url ?? ""}
+            placeholder="https://hooks.slack.com/services/…"
+            aria-invalid={!!state?.error}
+          />
+          <FieldError>{state?.error}</FieldError>
+          {!state?.error && <FieldDescription>Slack and Discord URLs get a formatted message. Any other URL receives the report as JSON. Leave empty to stop sending.</FieldDescription>}
+        </Field>
+        <div>
+          <Button type="submit" loading={pending}>
+            Save webhook
           </Button>
         </div>
       </FieldGroup>
@@ -227,5 +263,73 @@ export function DeleteProjectButton({ slug, name }: { slug: string; name: string
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  );
+}
+
+const MAX_ICON_BYTES = 512 * 1024;
+
+/** Picking a file uploads it straight away; the server re-checks size and format. */
+export function ProjectIconForm({ slug, name, src }: { slug: string; name: string; src: string | null }) {
+  const [state, action, pending] = useActionState(uploadIconAction.bind(null, slug), undefined);
+  const [clientError, setClientError] = useState<string | null>(null);
+  const [removing, startRemove] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useToastOnSuccess(state);
+
+  const error = clientError ?? state?.error;
+
+  return (
+    <form ref={formRef} action={action} className="flex flex-wrap items-center gap-4">
+      <ProjectIcon name={name} src={src} size="lg" />
+      <div className="grid gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" loading={pending} onClick={() => inputRef.current?.click()}>
+            {src ? "Replace logo" : "Upload logo"}
+          </Button>
+          {src && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              loading={removing}
+              onClick={() =>
+                startRemove(async () => {
+                  await removeIconAction(slug);
+                  toast.success("Logo removed");
+                })
+              }
+            >
+              Remove
+            </Button>
+          )}
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          name="icon"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="sr-only"
+          tabIndex={-1}
+          aria-label="Logo file"
+          onChange={(e) => {
+            const file = e.currentTarget.files?.[0];
+            if (!file) return;
+            if (file.size > MAX_ICON_BYTES) {
+              setClientError("The image is over 512 KB. Use a smaller or more compressed file.");
+              e.currentTarget.value = "";
+              return;
+            }
+            setClientError(null);
+            formRef.current?.requestSubmit();
+          }}
+        />
+        {error ? (
+          <FieldError>{error}</FieldError>
+        ) : (
+          <FieldDescription>Square PNG, JPEG, WebP or GIF, up to 512 KB. 256×256 works well.</FieldDescription>
+        )}
+      </div>
+    </form>
   );
 }

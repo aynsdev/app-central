@@ -18,6 +18,7 @@ export type ProjectRow = {
   onboardingSteps: string[];
   onboardingWindowDays: number;
   reportWebhookUrl: string | null;
+  iconUpdatedAt: Date | null;
   createdAt: Date;
 };
 
@@ -68,7 +69,7 @@ export async function listProjects(): Promise<ProjectSummary[]> {
 /** Lightweight list for navigation. */
 export async function listProjectNames() {
   await requireAdmin();
-  return sql<{ name: string; slug: string }[]>`select name, slug from projects order by created_at`;
+  return sql<{ name: string; slug: string; iconUpdatedAt: Date | null }[]>`select name, slug, icon_updated_at from projects order by created_at`;
 }
 
 export async function uniqueSlug(name: string) {

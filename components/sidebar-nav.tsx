@@ -3,9 +3,10 @@
 import { FolderPlusIcon, LayoutGridIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ProjectIcon } from "@/components/project-icon";
 import { Nav, NavGroup, NavItem, NavLabel } from "@/components/ui/nav";
 
-export function SidebarNav({ projects }: { projects: { name: string; slug: string }[] }) {
+export function SidebarNav({ projects }: { projects: { name: string; slug: string; icon: string | null }[] }) {
   const pathname = usePathname();
   return (
     <Nav>
@@ -22,9 +23,7 @@ export function SidebarNav({ projects }: { projects: { name: string; slug: strin
         {projects.map((p) => (
           <NavItem key={p.slug} asChild isActive={pathname.startsWith(`/projects/${p.slug}`)}>
             <Link href={`/projects/${p.slug}`}>
-              <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-md bg-secondary text-[11px] font-semibold uppercase">
-                {p.name.slice(0, 1)}
-              </span>
+              <ProjectIcon name={p.name} src={p.icon} />
               <span>{p.name}</span>
             </Link>
           </NavItem>

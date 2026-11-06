@@ -314,7 +314,7 @@ export type EventRow = {
   occurredAt: Date;
 };
 
-export async function listEvents(projectId: string, opts: { name?: string; userId?: string; limit?: number }) {
+export async function listEvents(projectId: string, opts: { name?: string; userId?: string; limit?: number; offset?: number }) {
   return sql<EventRow[]>`
     select id::text, user_id, name, properties, app_version, platform, occurred_at
     from events
@@ -322,8 +322,18 @@ export async function listEvents(projectId: string, opts: { name?: string; userI
       ${opts.name ? sql`and name = ${opts.name}` : sql``}
       ${opts.userId ? sql`and user_id = ${opts.userId}` : sql``}
     order by occurred_at desc, id desc
-    limit ${opts.limit ?? 100}
+    limit ${opts.limit ?? 100} offset ${opts.offset ?? 0}
   `;
+}
+
+export async function countEvents(projectId: string, opts: { name?: string; userId?: string }) {
+  const [{ total }] = await sql<{ total: number }[]>`
+    select count(*)::int as total from events
+    where project_id = ${projectId}
+      ${opts.name ? sql`and name = ${opts.name}` : sql``}
+      ${opts.userId ? sql`and user_id = ${opts.userId}` : sql``}
+  `;
+  return total;
 }
 
 /** Daily active users for the last `days` UTC days, for every project. Used for list sparklines. */

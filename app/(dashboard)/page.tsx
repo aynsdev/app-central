@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Sparkline } from "@/components/charts";
 import { PageHeader } from "@/components/page-header";
+import { ProjectIcon } from "@/components/project-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAllProjectSparklines } from "@/lib/analytics";
 import { formatNumber, formatRelative } from "@/lib/format";
+import { iconUrl } from "@/lib/icons";
 import { listProjects, type ProjectSummary } from "@/lib/projects";
 
 export const metadata: Metadata = { title: "Projects" };
@@ -54,9 +56,12 @@ async function ProjectGrid() {
           <Link href={`/projects/${p.slug}`} className="text-inherit no-underline">
             <CardHeader>
               <div className="flex items-start justify-between gap-3">
-                <div className="grid min-w-0 gap-1">
-                  <CardTitle className="truncate">{p.name}</CardTitle>
-                  <CardDescription className="capitalize">{p.platform.replace("-", " ")}</CardDescription>
+                <div className="flex min-w-0 items-center gap-3">
+                  <ProjectIcon name={p.name} src={iconUrl(p.slug, p.iconUpdatedAt)} size="md" />
+                  <div className="grid min-w-0 gap-1">
+                    <CardTitle className="truncate">{p.name}</CardTitle>
+                    <CardDescription className="capitalize">{p.platform.replace("-", " ")}</CardDescription>
+                  </div>
                 </div>
                 <Health project={p} />
               </div>

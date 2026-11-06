@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSession, destroySession, hasAnyAdmin, requireAdmin } from "@/lib/auth";
 import { sql } from "@/lib/db";
+import { deleteProjectIcon, MAX_ICON_BYTES, saveProjectIcon, sniffImageType } from "@/lib/icons";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { getProject, newIngestKey, PLATFORMS, uniqueSlug } from "@/lib/projects";
 import { generateReport } from "@/lib/reports";
@@ -87,21 +88,30 @@ export async function createProjectAction(_: FormState, formData: FormData): Pro
 
 export async function updateProjectAction(slug: string, _: FormState, formData: FormData): Promise<FormState> {
   const project = await getProject(slug);
-  const parsed = projectSchema
-    .extend({
-      reportWebhookUrl: z.union([z.literal(""), z.url("Webhook must be a full https:// URL")]).optional(),
-    })
-    .safeParse(Object.fromEntries(formData));
+  const parsed = projectSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: firstIssue(parsed.error) };
 
-  const { name, description, platform, timezone, reportWebhookUrl } = parsed.data;
+  const { name, description, platform, timezone } = parsed.data;
   await sql`
-    update projects set name = ${name}, description = ${description || null}, platform = ${platform},
-      timezone = ${timezone}, report_webhook_url = ${reportWebhookUrl || null}
+    update projects set name = ${name}, description = ${description || null}, platform = ${platform}, timezone = ${timezone}
     where id = ${project.id}
   `;
   revalidatePath("/", "layout"); // the name shows in the sidebar
   return { ok: "Saved" };
+}
+
+const webhookSchema = z.object({
+  reportWebhookUrl: z.union([z.literal(""), z.url({ protocol: /^https?$/, error: "Use a full http(s):// URL" })]),
+});
+
+export async function updateWebhookAction(slug: string, _: FormState, formData: FormData): Promise<FormState> {
+  const project = await getProject(slug);
+  const parsed = webhookSchema.safeParse({ reportWebhookUrl: String(formData.get("reportWebhookUrl") ?? "").trim() });
+  if (!parsed.success) return { error: firstIssue(parsed.error) };
+
+  await sql`update projects set report_webhook_url = ${parsed.data.reportWebhookUrl || null} where id = ${project.id}`;
+  refresh();
+  return { ok: parsed.data.reportWebhookUrl ? "Webhook saved" : "Webhook removed" };
 }
 
 export async function rotateKeyAction(slug: string) {
@@ -115,6 +125,27 @@ export async function deleteProjectAction(slug: string) {
   await sql`delete from projects where id = ${project.id}`;
   revalidatePath("/", "layout");
   redirect("/");
+}
+
+export async function uploadIconAction(slug: string, _: FormState, formData: FormData): Promise<FormState> {
+  const project = await getProject(slug);
+  const file = formData.get("icon");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image to upload." };
+  if (file.size > MAX_ICON_BYTES) return { error: "The image is over 512 KB. Use a smaller or more compressed file." };
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const type = sniffImageType(bytes);
+  if (!type) return { error: "Use a PNG, JPEG, WebP or GIF image." };
+
+  await saveProjectIcon(project.id, bytes, type);
+  revalidatePath("/", "layout"); // sidebar and cards show the icon
+  return { ok: "Logo updated" };
+}
+
+export async function removeIconAction(slug: string) {
+  const project = await getProject(slug);
+  await deleteProjectIcon(project.id);
+  revalidatePath("/", "layout");
 }
 
 // ── Onboarding & reports ───────────────────────────────────────────────────

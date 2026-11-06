@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { Suspense } from "react";
 import { CodeBlock, CopyButton } from "@/components/copy-button";
-import { DeleteProjectButton, ProjectSettingsForm, RotateKeyButton } from "@/components/forms/project-forms";
-import { SectionTitle } from "@/components/page-header";
+import { DeleteProjectButton, ProjectIconForm, ProjectSettingsForm, RotateKeyButton, WebhookForm } from "@/components/forms/project-forms";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { iconUrl } from "@/lib/icons";
 import { getProject } from "@/lib/projects";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -56,6 +56,19 @@ POST ${url}/api/v1/webhook?key=${key}&event=purchase_completed`,
   };
 }
 
+/** One settings row: what it is on the left, the controls on the right. Stacks on small screens. */
+function Section({ id, title, description, children }: { id?: string; title: string; description: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section id={id} className="grid scroll-mt-8 gap-4 border-t border-border pt-8 first:border-t-0 first:pt-0 lg:grid-cols-[240px_1fr] lg:gap-10">
+      <div className="grid content-start gap-1">
+        <h2 className="text-base font-semibold tracking-[-0.015em]">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="grid min-w-0 gap-4">{children}</div>
+    </section>
+  );
+}
+
 async function Settings({ params, searchParams }: Props) {
   const project = await getProject((await params).slug);
   const created = (await searchParams).created === "1";
@@ -63,85 +76,91 @@ async function Settings({ params, searchParams }: Props) {
   const code = snippets(url, project.ingestKey);
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-8">
       {created && (
         <Alert variant="success">
           <AlertTitle>{project.name} is ready</AlertTitle>
-          <AlertDescription>Add the ingest key below to your app. Data appears on the Overview tab as soon as the first event arrives.</AlertDescription>
+          <AlertDescription>
+            <p>
+              Add the ingest key to your app. Data appears on the Overview tab as soon as the first event arrives.{" "}
+              <a href="#install" className="text-foreground underline decoration-border-strong underline-offset-[3px] hover:decoration-current">
+                See how to send data
+              </a>
+            </p>
+          </AlertDescription>
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <SectionTitle description="Identifies this project when your app sends data. It can only write events, so it is safe to ship inside an app.">
-            Ingest key
-          </SectionTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="flex items-center gap-2 rounded-xl bg-secondary py-1 pr-1 pl-4">
-            <code className="min-w-0 flex-1 truncate font-mono text-sm">{project.ingestKey}</code>
-            <CopyButton value={project.ingestKey} label="Copy key" />
-          </div>
-          <div>
-            <RotateKeyButton slug={project.slug} />
-          </div>
-        </CardContent>
-      </Card>
+      <Section title="General" description="How the project appears in the dashboard, and the time zone its charts use.">
+        <Card>
+          <CardContent className="grid gap-6">
+            <ProjectIconForm slug={project.slug} name={project.name} src={iconUrl(project.slug, project.iconUpdatedAt)} />
+            <ProjectSettingsForm
+              slug={project.slug}
+              defaults={{ name: project.name, description: project.description, platform: project.platform, timezone: project.timezone }}
+            />
+          </CardContent>
+        </Card>
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <SectionTitle description="Pick whichever fits the app. All of them can be mixed.">Send data</SectionTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="sdk">
-            <TabsList>
-              <TabsTrigger value="sdk">TypeScript SDK</TabsTrigger>
-              <TabsTrigger value="curl">HTTP API</TabsTrigger>
-              <TabsTrigger value="ping">Ping only</TabsTrigger>
-              <TabsTrigger value="webhook">Webhook</TabsTrigger>
-            </TabsList>
-            <TabsContent value="sdk" className="mt-4">
-              <CodeBlock code={code.sdk} />
-            </TabsContent>
-            <TabsContent value="curl" className="mt-4">
-              <CodeBlock code={code.curl} />
-            </TabsContent>
-            <TabsContent value="ping" className="mt-4">
-              <CodeBlock code={code.ping} />
-            </TabsContent>
-            <TabsContent value="webhook" className="mt-4">
-              <CodeBlock code={code.webhook} />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+      <Section title="Ingest key" description="Identifies this project when your app sends data. It can only write events, so it is safe to ship inside an app.">
+        <Card>
+          <CardContent className="grid gap-4">
+            <div className="flex items-center gap-2 rounded-xl bg-secondary py-1 pr-1 pl-4">
+              <code className="min-w-0 flex-1 truncate font-mono text-sm">{project.ingestKey}</code>
+              <CopyButton value={project.ingestKey} label="Copy key" />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <RotateKeyButton slug={project.slug} />
+              <p className="text-[13px] text-muted-foreground">Rotating stops the old key immediately.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <SectionTitle>Project</SectionTitle>
-        </CardHeader>
-        <CardContent>
-          <ProjectSettingsForm
-            slug={project.slug}
-            defaults={{
-              name: project.name,
-              description: project.description,
-              platform: project.platform,
-              timezone: project.timezone,
-              reportWebhookUrl: project.reportWebhookUrl,
-            }}
-          />
-        </CardContent>
-      </Card>
+      <Section id="install" title="Send data" description="Pick whichever fits the app. They can be mixed: the SDK in the app, the webhook from your backend.">
+        <Card>
+          <CardContent>
+            <Tabs defaultValue="sdk">
+              <TabsList>
+                <TabsTrigger value="sdk">TypeScript SDK</TabsTrigger>
+                <TabsTrigger value="curl">HTTP API</TabsTrigger>
+                <TabsTrigger value="ping">Ping only</TabsTrigger>
+                <TabsTrigger value="webhook">Webhook</TabsTrigger>
+              </TabsList>
+              <TabsContent value="sdk" className="mt-4">
+                <CodeBlock code={code.sdk} />
+              </TabsContent>
+              <TabsContent value="curl" className="mt-4">
+                <CodeBlock code={code.curl} />
+              </TabsContent>
+              <TabsContent value="ping" className="mt-4">
+                <CodeBlock code={code.ping} />
+              </TabsContent>
+              <TabsContent value="webhook" className="mt-4">
+                <CodeBlock code={code.webhook} />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <SectionTitle description="Deletes the project and every user, event and report in it.">Danger zone</SectionTitle>
-        </CardHeader>
-        <CardContent>
-          <DeleteProjectButton slug={project.slug} name={project.name} />
-        </CardContent>
-      </Card>
+      <Section title="Weekly reports" description="Where reports are posted when they are generated, by the Reports tab or the scheduled cron call.">
+        <Card>
+          <CardContent>
+            <WebhookForm slug={project.slug} url={project.reportWebhookUrl} />
+          </CardContent>
+        </Card>
+      </Section>
+
+      <Section title="Danger zone" description="Deletes the project and every user, event and report in it. This can't be undone.">
+        <Card>
+          <CardContent className="flex flex-wrap items-center justify-between gap-4">
+            <p className="text-sm text-muted-foreground">Apps still sending data to this key will get errors.</p>
+            <DeleteProjectButton slug={project.slug} name={project.name} />
+          </CardContent>
+        </Card>
+      </Section>
     </div>
   );
 }

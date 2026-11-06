@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeSwitcher } from "@/components/ui/theme-switcher";
 import { requireAdmin } from "@/lib/auth";
+import { iconUrl } from "@/lib/icons";
 import { listProjectNames } from "@/lib/projects";
 
 async function SidebarProjects() {
   const projects = await listProjectNames();
-  return <SidebarNav projects={projects} />;
+  return <SidebarNav projects={projects.map((p) => ({ name: p.name, slug: p.slug, icon: iconUrl(p.slug, p.iconUpdatedAt) }))} />;
 }
 
 async function SidebarAccount() {
