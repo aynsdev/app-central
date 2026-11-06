@@ -20,7 +20,7 @@ Requirements: Node 22+, and Docker (or any PostgreSQL 14+).
 git clone <this repo> app-central && cd app-central
 npm install
 cp .env.example .env            # edit DB_* / CRON_SECRET if needed
-docker compose up -d db         # Postgres on localhost:5433
+docker compose up -d db         # Postgres on localhost:$DB_PORT (5432)
 npm run db:migrate
 npm run db:seed                 # optional: a demo project with 60 days of fake data
 npm run dev

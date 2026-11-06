@@ -101,5 +101,7 @@ logos, is stored in Postgres.
   `pm2 logs`.
 - **`Database is not configured`** during deploy: `.env` has no `DB_*` or
   `DATABASE_URL`. Fill it in under **Site → Environment** and redeploy.
+- **`ECONNREFUSED 127.0.0.1:<port>`** during `db:migrate`: `DB_PORT` (or
+  `DB_HOST`) is wrong. Forge's Postgres listens on `5432`.
 - **Changed `.env` but nothing happened**: redeploy, or run
   `pm2 reload all --update-env` over SSH.
