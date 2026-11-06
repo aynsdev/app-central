@@ -19,7 +19,7 @@ Requirements: Node 22+, and Docker (or any PostgreSQL 14+).
 ```bash
 git clone <this repo> app-central && cd app-central
 npm install
-cp .env.example .env            # edit DATABASE_URL / CRON_SECRET if needed
+cp .env.example .env            # edit DB_* / CRON_SECRET if needed
 docker compose up -d db         # Postgres on localhost:5433
 npm run db:migrate
 npm run db:seed                 # optional: a demo project with 60 days of fake data
@@ -44,10 +44,13 @@ See [docs/deploy-forge.md](docs/deploy-forge.md).
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | Postgres connection string |
+| `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | yes* | Postgres connection (Laravel/Forge style) |
+| `DATABASE_URL` | yes* | Postgres connection string; overrides the `DB_*` settings |
 | `APP_URL` | no | Public URL of the dashboard, used in snippets and report links |
 | `CRON_SECRET` | for reports | Bearer token for `POST /api/cron/reports` |
 | `DATABASE_POOL_SIZE` | no | Connection pool size (default 10) |
+
+\* Set either the `DB_*` variables or `DATABASE_URL`.
 
 ---
 

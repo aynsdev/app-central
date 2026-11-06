@@ -4,13 +4,13 @@
 //   npm run db:seed
 import { randomBytes, randomUUID } from "node:crypto";
 import postgres from "postgres";
+import { DB_CONFIG_MISSING, connect, dbConfig } from "./db-config.mjs";
 
-const url = process.env.DATABASE_URL;
-if (!url) {
-  console.error("DATABASE_URL is not set");
+if (!dbConfig()) {
+  console.error(DB_CONFIG_MISSING);
   process.exit(1);
 }
-const sql = postgres(url, { max: 1, onnotice: () => {} });
+const sql = connect(postgres, { max: 1, onnotice: () => {} });
 
 const DAY = 86_400_000;
 const DAYS = 60;

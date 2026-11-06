@@ -1,115 +1,81 @@
 # Deploying on Laravel Forge
 
-App Central builds to a self-contained Node server (`output: "standalone"`).
-On Forge it runs as a **Background Process** (Supervisor) behind Nginx, with
-PostgreSQL on the same server. Replace `app.example.com` with your domain
-everywhere below.
+Forge runs Next.js sites with PM2 (`next start`) behind Nginx. App Central
+works with Forge's defaults; you only add a database, environment variables
+and one migration line. Replace `app.example.com` with your domain below.
 
 ## 1. Server
 
-Create a server (App server is fine) and pick **PostgreSQL** as the database
-and **Node 22** or newer. On an existing server, check with `node -v` over SSH
-and install Postgres from **Databases** if it isn't there.
+Create a server with **PostgreSQL** as the database and **Node 22** or newer.
 
-## 2. Database
-
-**Server → Databases → Create database**
-
-- Database: `appcentral`
-- User: `appcentral`, with a generated password
-
-Your connection string becomes:
-
-```
-postgres://appcentral:<password>@127.0.0.1:5432/appcentral
-```
-
-URL-encode the password if it contains `@ : / ? #` characters.
-
-## 3. Site
+## 2. Site and database
 
 **Server → Sites → New site**
 
 - Domain: `app.example.com`
 - Project type: **Next.js**
 - Repository: `aynsdev/app-central` (or your fork), branch `main`
-- Leave "Install Composer dependencies" off; it's not a PHP app
+- Have Forge create a database (for example `app_central`)
 
-Forge sets up Nginx to proxy to `127.0.0.1:3000`. If you run more than one Node
-app on the server, give each its own port and change the Nginx config
-(**Site → Nginx**) to match.
+## 3. Environment
 
-## 4. Environment
-
-**Site → Environment**. Forge copies `.env.example` on creation; replace it with:
+**Site → Environment**. Forge creates `.env` from `.env.example` and fills in
+the database settings. Check that it looks like this:
 
 ```dotenv
-DATABASE_URL=postgres://appcentral:<password>@127.0.0.1:5432/appcentral
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_DATABASE=app_central
+DB_USERNAME=forge
+DB_PASSWORD=<filled in by Forge>
+
 APP_URL=https://app.example.com
 CRON_SECRET=<output of: openssl rand -hex 24>
-NODE_ENV=production
 ```
 
-The `.env` file lives at `/home/forge/app.example.com/.env` and is shared into
-every release automatically.
+`DATABASE_URL` also works and takes precedence over the `DB_*` settings.
+The `.env` is shared into every release automatically.
 
-## 5. Background process
+## 4. Deploy script
 
-**Server → Background processes → New** (the server-level one, not the site one,
-if you see both):
-
-| Field | Value |
-| --- | --- |
-| Command | `/usr/bin/env PORT=3000 HOSTNAME=127.0.0.1 node --env-file=/home/forge/app.example.com/.env .next/standalone/server.js` |
-| Directory | `/home/forge/app.example.com/current` |
-| User | `forge` |
-| Processes | 1 |
-
-`HOSTNAME=127.0.0.1` keeps the app reachable only through Nginx. Note the
-process **ID** Forge shows (for example `65654`); the deploy script restarts it.
-
-It will crash-loop until the first deploy finishes. That's expected.
-
-## 6. Deploy script
-
-**Site → Deployments → Deploy script**:
+**Site → Deployments → Deploy script**. Keep what Forge generated and add
+`npm run db:migrate` after the build:
 
 ```bash
 $CREATE_RELEASE()
 
 cd $FORGE_RELEASE_DIRECTORY
 
-npm ci --no-audit --no-fund
+npm ci || npm install
 npm run build
-
-# The standalone server doesn't include static assets; copy them in.
-cp -r public .next/standalone/
-cp -r .next/static .next/standalone/.next/
-
-# Apply pending SQL migrations before the new release goes live.
-node --env-file=.env scripts/migrate.mjs
+npm run db:migrate
 
 $ACTIVATE_RELEASE()
 
-sudo -S supervisorctl restart daemon-65654:*
+# ...Forge's PM2 block stays as generated (pm2 start ... || pm2 reload ...)
 ```
 
-Swap `65654` for your background process ID. If the build or a migration
-fails, the previous release keeps serving.
+Migrations run before the new release goes live, so if the build or a
+migration fails, the previous release keeps serving.
+
+Forge starts the app in PM2 cluster mode with one worker per CPU core. Each
+worker opens up to 10 database connections. On a big server, lower that with
+`DATABASE_POOL_SIZE=5` in `.env` so you stay under Postgres's default limit of
+100 connections.
 
 The build needs about 1.5 GB of memory. On a 1 GB server, add swap first
 (`sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`,
 then add it to `/etc/fstab`).
 
-Click **Deploy now**, and turn on **Push to deploy** if you want deploys on every push to `main`.
+Click **Deploy now**, and turn on **Push to deploy** if you want deploys on
+every push to `main`.
 
-## 7. SSL
+## 5. SSL and first login
 
-**Site → SSL → Let's Encrypt**. Once it's active, open
-`https://app.example.com/setup` and create the admin account. The setup page
-only works while no admin exists.
+**Site → SSL → Let's Encrypt**. Then open `https://app.example.com/setup` and
+create the admin account. The setup page only works while no admin exists.
 
-## 8. Weekly reports
+## 6. Weekly reports
 
 **Server → Scheduler → New job**:
 
@@ -126,16 +92,14 @@ its report posted.
 
 ## Backups
 
-Turn on **Database backups** for `appcentral` (S3, DigitalOcean Spaces, etc.).
-Everything, including project logos, is stored in Postgres.
+Turn on **Database backups** for the database. Everything, including project
+logos, is stored in Postgres.
 
 ## Troubleshooting
 
-- **502 Bad Gateway**: the process isn't running. Check
-  **Background processes → Logs**, or `sudo supervisorctl status` over SSH.
-- **`DATABASE_URL is not set`** during deploy: the shared `.env` is empty or
-  missing. Fill it in under **Site → Environment** and redeploy.
-- **Changed `.env` but nothing happened**: restart the background process.
-  Env changes don't need a rebuild.
-- **Port 3000 already in use**: another Node site owns it. Pick a new port in
-  both the process command and the site's Nginx config.
+- **502 Bad Gateway**: the app isn't running. SSH in and run `pm2 status` and
+  `pm2 logs`.
+- **`Database is not configured`** during deploy: `.env` has no `DB_*` or
+  `DATABASE_URL`. Fill it in under **Site → Environment** and redeploy.
+- **Changed `.env` but nothing happened**: redeploy, or run
+  `pm2 reload all --update-env` over SSH.
